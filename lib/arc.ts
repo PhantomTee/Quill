@@ -2,7 +2,7 @@ import { createPublicClient, createWalletClient, http, parseAbi, parseUnits, for
 import { arcTestnet } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
-export const ARC_RPC = "https://rpc.testnet.arc.network";
+export const ARC_RPC = process.env.ARC_RPC_URL ?? "https://rpc.testnet.arc.network";
 export const ARC_CHAIN_ID = 5042002;
 export const USDC_ADDRESS = "0x3600000000000000000000000000000000000000" as const;
 export const EURC_ADDRESS = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a" as const;

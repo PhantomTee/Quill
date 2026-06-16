@@ -62,14 +62,31 @@ export async function GET(request: NextRequest) {
         registeredAt: bigint;
       };
 
+      // Fetch full agent metadata from chain (name, description, tags)
+      let name = `Agent #${agentId}`;
+      let description = "";
+      let tags: string[] = [];
+      try {
+        const agentData = await client.readContract({
+          address: REGISTRY_ADDRESS,
+          abi: REGISTRY_ABI,
+          functionName: "getAgent",
+          args: [agentId],
+        }) as [bigint, string, string, string, bigint, string, string[], string, boolean, bigint, bigint, bigint];
+        name = agentData[1] || name;
+        description = agentData[2] || "";
+        tags = agentData[6] || [];
+      } catch { /* fall back to defaults */ }
+
       const { error } = await supabase.from("agents").upsert({
         agent_id: Number(agentId),
-        name: `Agent #${agentId}`,
+        name,
+        description,
         service_url: serviceUrl,
         price_per_call: Number(pricePerCall),
         wallet_address: walletAddress.toLowerCase(),
         owner_address: agentOwner.toLowerCase(),
-        tags: [],
+        tags,
         is_active: true,
         registered_at: new Date(Number(registeredAt) * 1000).toISOString(),
         tx_hash: log.transactionHash,

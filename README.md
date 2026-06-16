@@ -45,8 +45,36 @@ Caller                  Quill Proxy              Agent Service
 
 | RFB | Implementation |
 |-----|----------------|
+| RFB 1 — Autonomous Paying Agents | `lib/agent/buyerAgent.ts`, `app/api/agent/run/route.ts`, `app/agent-run/page.tsx` |
 | RFB 2 — Agent marketplace | `/marketplace`, `/register`, `AgentRegistry.sol` |
 | RFB 3 — On-chain reputation | `AgentRegistry.sol` tracks `totalCalls` + `totalRevenue` per agent on-chain |
+
+---
+
+## Autonomous Agent
+
+The buyer agent at `/agent-run` is the centrepiece of Quill's agentic story. It makes **all decisions via LLM** — no hardcoded routing:
+
+```
+User task
+  │
+  ▼
+planTask() ──────────────── Llama decomposes into ordered subtasks
+  │
+  ▼ (for each subtask)
+GET /api/agents?q=...&maxPrice=remaining ── discovery
+  │
+  ▼
+evaluateCandidates() ─────── Llama picks the best agent or skips
+  │                          (reasoning must reference cost vs value)
+  ▼ hard budget check
+AgentCaller.call() ──────── Real x402 payment on Arc Testnet
+  │
+  ▼ chain output → next subtask
+synthesize() ────────────── Llama produces final answer
+```
+
+The UI shows the full decision trace: every candidate considered, the LLM's reasoning, confidence, amount paid, and a link to the on-chain settlement tx.
 
 ---
 

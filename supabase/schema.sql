@@ -127,6 +127,22 @@ create policy "Service role manages sync_state"
   to service_role
   using (true);
 
+-- ── increment_agent_stats ─────────────────────────────────────────────────────
+-- Atomically increments total_calls and total_revenue for an agent.
+-- Called by lib/x402.ts withGateway() after each settled payment.
+create or replace function public.increment_agent_stats(p_agent_id bigint, p_amount numeric)
+returns void
+language sql
+security definer
+as $$
+  update public.agents
+  set
+    total_calls   = total_calls + 1,
+    total_revenue = total_revenue + p_amount,
+    updated_at    = now()
+  where agent_id = p_agent_id;
+$$;
+
 -- ── Realtime ──────────────────────────────────────────────────────────────────
 alter publication supabase_realtime add table public.payment_events;
 alter publication supabase_realtime add table public.withdrawals;

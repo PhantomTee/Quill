@@ -1,7 +1,6 @@
 import { createPublicClient, createWalletClient, http, parseAbi, parseUnits, formatUnits, type PublicClient } from "viem";
 import { arcTestnet } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
-import AgentRegistryABI from "./contracts/AgentRegistry.json";
 
 export const ARC_RPC = "https://rpc.testnet.arc.network";
 export const ARC_CHAIN_ID = 5042002;

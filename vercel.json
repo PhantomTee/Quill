@@ -1,8 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/registry/sync",
-      "schedule": "0 0 * * *"
-    }
-  ]
-}
+{}

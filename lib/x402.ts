@@ -218,11 +218,25 @@ export function withGateway(
           raw: { requirements, settlementId: result.settlementId },
         });
 
-        // Update agent stats
-        await supabase.rpc("increment_agent_stats", {
+        // Update agent stats — try RPC first, fall back to read-modify-write
+        const amount = parseFloat(formatUSDC(BigInt(result.amountPaid)));
+        const { error: rpcErr } = await supabase.rpc("increment_agent_stats", {
           p_agent_id: options.agentId,
-          p_amount: parseFloat(formatUSDC(BigInt(result.amountPaid))),
-        }).then(() => {}, () => {});
+          p_amount: amount,
+        });
+        if (rpcErr) {
+          const { data: ag } = await supabase
+            .from("agents")
+            .select("total_calls,total_revenue")
+            .eq("agent_id", options.agentId)
+            .single();
+          if (ag) {
+            await supabase.from("agents").update({
+              total_calls: (ag.total_calls ?? 0) + 1,
+              total_revenue: (parseFloat(ag.total_revenue ?? "0") + amount).toFixed(6),
+            }).eq("agent_id", options.agentId!);
+          }
+        }
       } catch {
         // Non-fatal — log but don't block the response
       }

@@ -81,7 +81,7 @@ export default function RegisterPage() {
       return;
     }
     if (!REGISTRY_ADDRESS) {
-      setError("Registry contract not deployed. Add NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS to .env.local.");
+      setError("Registry contract not deployed. Add NEXT_PUBLIC_REGISTRY_ADDRESS to .env.local.");
       return;
     }
 

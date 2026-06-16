@@ -51,7 +51,7 @@ export function useRegisterAgent() {
         address: REGISTRY_ADDRESS,
         abi: AgentRegistryABI,
         functionName: "registerAgent",
-        args: [args.name, args.description, args.serviceUrl, args.walletAddress, args.pricePerCall, args.tags],
+        args: [args.name, args.description, args.serviceUrl, args.pricePerCall, args.walletAddress, args.tags],
       });
     },
     [writeContract]

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const { data: syncState } = await supabase
       .from("sync_state")
       .select("last_block")
-      .eq("contract", "AgentRegistry")
+      .eq("id", "agent_registry")
       .single();
 
     const fromBlock = BigInt(syncState?.last_block ?? 0);
@@ -82,10 +82,10 @@ export async function GET(request: NextRequest) {
 
     // Update sync state
     await supabase.from("sync_state").upsert({
-      contract: "AgentRegistry",
+      id: "agent_registry",
       last_block: Number(toBlock),
-      last_synced: new Date().toISOString(),
-    }, { onConflict: "contract" });
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "id" });
 
     return NextResponse.json({ synced, fromBlock: Number(fromBlock), toBlock: Number(toBlock) });
   } catch (e: unknown) {

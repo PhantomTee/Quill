@@ -3,6 +3,28 @@ import { supabase } from "@/lib/supabase";
 import { paymentRequiredResponse, verifyAndSettlePayment, buildPaymentRequired, encodePaymentRequired, ARC_NETWORK } from "@/lib/x402";
 import { formatUSDC } from "@/lib/arc";
 
+// Block private/loopback IP ranges to prevent SSRF attacks
+function isPrivateUrl(urlStr: string): boolean {
+  try {
+    const { hostname, protocol } = new URL(urlStr);
+    if (protocol !== "https:" && protocol !== "http:") return true;
+    // Block localhost variants
+    if (/^(localhost|127\.|0\.0\.0\.0|::1)/.test(hostname)) return true;
+    // Block RFC-1918 private ranges: 10.x, 172.16-31.x, 192.168.x
+    if (/^10\./.test(hostname)) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return true;
+    if (/^192\.168\./.test(hostname)) return true;
+    // Block link-local and metadata endpoints
+    if (/^169\.254\./.test(hostname)) return true;
+    if (/^(fd|fc)[0-9a-f]{2}:/i.test(hostname)) return true;
+    // Block AWS/GCP/Azure metadata endpoints
+    if (hostname === "metadata.google.internal") return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -42,7 +64,11 @@ export async function POST(
       );
     }
 
-    // Proxy to agent endpoint
+    // Proxy to agent endpoint — block private/loopback URLs (SSRF)
+    if (isPrivateUrl(agent.service_url)) {
+      return NextResponse.json({ error: "Agent service URL points to a private network address" }, { status: 400 });
+    }
+
     const body = await request.text();
     const agentResponse = await fetch(agent.service_url, {
       method: "POST",

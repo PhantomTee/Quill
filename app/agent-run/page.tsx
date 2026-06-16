@@ -40,12 +40,6 @@ interface RunResult {
   error?: string;
 }
 
-const EXAMPLE_TASKS = [
-  "Summarize the latest news about AI and suggest what I should read first",
-  "Write a catchy tagline for a productivity app and explain its appeal",
-  "Analyze the pros and cons of moving to TypeScript for a Node.js project",
-];
-
 export default function AgentRunPage() {
   const [task, setTask] = useState("");
   const [budget, setBudget] = useState("0.005");
@@ -109,19 +103,7 @@ export default function AgentRunPage() {
             onChange={(e) => setTask(e.target.value)}
           />
 
-          <div className="flex flex-wrap gap-2 mt-3 mb-5">
-            {EXAMPLE_TASKS.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTask(t)}
-                className="text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 rounded px-2 py-1 transition-colors"
-              >
-                {t.slice(0, 45)}…
-              </button>
-            ))}
-          </div>
-
-          <div className="flex gap-4 items-end">
+          <div className="flex gap-4 items-end mt-4">
             <div className="flex-1">
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
                 Budget (USDC)

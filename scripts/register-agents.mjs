@@ -58,9 +58,10 @@ const AGENTS = [
   },
 ];
 
+const RPC = process.env.ARC_RPC_URL ?? "https://rpc.testnet.arc.network";
 const account = privateKeyToAccount(DEPLOYER_KEY);
-const walletClient = createWalletClient({ account, chain: arcTestnet, transport: http("https://rpc.testnet.arc.network") });
-const publicClient = createPublicClient({ chain: arcTestnet, transport: http("https://rpc.testnet.arc.network") });
+const walletClient = createWalletClient({ account, chain: arcTestnet, transport: http(RPC) });
+const publicClient = createPublicClient({ chain: arcTestnet, transport: http(RPC) });
 
 async function supabaseUpsert(agent, agentId, txHash) {
   if (!SUPABASE_URL || !SUPABASE_KEY) { console.log("  Supabase not configured, skipping DB upsert"); return; }

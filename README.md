@@ -184,9 +184,9 @@ See `.env.example` for all required variables.
 
 ---
 
-## Sync cron setup
+## Sync setup (GitHub Actions)
 
-On-chain `AgentRegistered` events sync to Supabase every 10 minutes via GitHub Actions.  
+On-chain `AgentRegistered` events sync to Supabase every 10 minutes via `.github/workflows/sync.yml`.  
 Add these secrets to your GitHub repo (Settings → Secrets → Actions):
 
 - `CRON_SECRET` — same value as in `.env.local`

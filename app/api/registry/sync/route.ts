@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { getPublicClient, REGISTRY_ADDRESS, REGISTRY_ABI, formatUSDC } from "@/lib/arc";
 
 // Sync on-chain AgentRegistered events to Supabase
-// Called by Vercel Cron every 10 minutes
+// Called by GitHub Actions every 10 minutes (.github/workflows/sync.yml)
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
   const cronSecret = process.env.CRON_SECRET;

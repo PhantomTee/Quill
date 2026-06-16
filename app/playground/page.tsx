@@ -8,6 +8,7 @@ import { ARC_CHAIN_ID, USDC_ADDRESS, GATEWAY_WALLET } from "@/lib/arc";
 interface Agent {
   agent_id: number;
   name: string;
+  description: string | null;
   service_url: string;
   price_per_call: number;
   wallet_address: string;
@@ -124,6 +125,11 @@ function PlaygroundInner() {
                   }}
                 >
                   <div style={{ fontWeight: 500, marginBottom: 4, color: "var(--color-text)" }}>{a.name}</div>
+                  {a.description && (
+                    <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginBottom: 5, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {a.description}
+                    </div>
+                  )}
                   <PriceBadge pricePerCall={a.price_per_call} />
                 </button>
               ))}

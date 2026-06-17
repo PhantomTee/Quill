@@ -7,7 +7,18 @@ import { useState } from "react";
 
 const config = createConfig({
   chains: [arcTestnet],
-  connectors: [injected()],
+  connectors: [
+    injected(),
+    injected({
+      target() {
+        return {
+          id: "okxwallet",
+          name: "OKX Wallet",
+          provider: typeof window !== "undefined" ? (window as unknown as { okxwallet?: unknown }).okxwallet as never : undefined,
+        };
+      },
+    }),
+  ],
   transports: { [arcTestnet.id]: http("https://rpc.testnet.arc.network") },
   ssr: true,
 });

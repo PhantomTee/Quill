@@ -35,8 +35,10 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleConnect = () => {
-    const injectedConnector = connectors.find((c) => c.id === "injected") ?? connectors[0];
-    if (injectedConnector) connect({ connector: injectedConnector });
+    const c = connectors.find((c) => c.id === "okxwallet")
+      ?? connectors.find((c) => c.id === "injected")
+      ?? connectors[0];
+    if (c) connect({ connector: c });
   };
 
   return (

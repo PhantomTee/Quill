@@ -32,7 +32,9 @@ export default function HistoryPage() {
   const { connect } = useConnect();
   const connectors = useConnectors();
   const handleConnect = () => {
-    const c = connectors.find((c) => c.id === "injected") ?? connectors[0];
+    const c = connectors.find((c) => c.id === "okxwallet")
+      ?? connectors.find((c) => c.id === "injected")
+      ?? connectors[0];
     if (c) connect({ connector: c });
   };
   const [payments, setPayments] = useState<PaymentEvent[]>([]);

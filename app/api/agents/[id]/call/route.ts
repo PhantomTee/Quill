@@ -129,7 +129,7 @@ export async function POST(
       gateway_tx: settleResult.success ? settleResult.settlementId : null,
       status: paymentStatus,
       raw: { agentId: id, latencyMs: latency, agentStatus: agentResponse.status },
-    }).catch(() => null);
+    }).then(() => null, () => null);
 
     // Update stats atomically — only on successful agent response
     if (settleResult.success && agentSucceeded) {

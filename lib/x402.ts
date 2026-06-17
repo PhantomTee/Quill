@@ -126,7 +126,7 @@ export async function verifyPayment(
     // Circle Gateway requires resource + accepted in the paymentPayload object
     const enrichedPayload = {
       ...payload,
-      resource: requirements.resource.url,
+      resource: requirements.resource,
       accepted: requirements.accepts[0],
     };
 

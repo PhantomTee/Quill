@@ -11,11 +11,11 @@ const config = createConfig({
     injected(),
     injected({
       target() {
-        return {
-          id: "okxwallet",
-          name: "OKX Wallet",
-          provider: typeof window !== "undefined" ? (window as unknown as { okxwallet?: unknown }).okxwallet as never : undefined,
-        };
+        if (typeof window === "undefined") return undefined;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const provider = (window as any).okxwallet;
+        if (!provider) return undefined;
+        return { id: "okxwallet", name: "OKX Wallet", provider };
       },
     }),
   ],

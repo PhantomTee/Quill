@@ -117,7 +117,8 @@ export async function verifyPayment(
 ): Promise<VerifyOnlyResult> {
   try {
     const { BatchFacilitatorClient } = await import("@circle-fin/x402-batching/server");
-    const facilitator = new BatchFacilitatorClient();
+    // Arc Testnet uses Circle's testnet gateway, not the mainnet default
+    const facilitator = new BatchFacilitatorClient({ url: "https://gateway-api-testnet.circle.com" });
 
     const payload = decodePaymentSignature(paymentSignatureHeader);
     if (!payload) return { valid: false, error: "Invalid payment-signature header" };

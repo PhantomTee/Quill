@@ -122,8 +122,15 @@ export async function verifyPayment(
     const payload = decodePaymentSignature(paymentSignatureHeader);
     if (!payload) return { valid: false, error: "Invalid payment-signature header" };
 
+    // Circle Gateway requires resource + accepted in the paymentPayload object
+    const enrichedPayload = {
+      ...payload,
+      resource: requirements.resource.url,
+      accepted: requirements.accepts[0],
+    };
+
     const verifyResult = await Promise.race([
-      facilitator.verify(payload as never, requirements.accepts[0] as never),
+      facilitator.verify(enrichedPayload as never, requirements.accepts[0] as never),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Verification timeout")), 5000)
       ),
@@ -133,7 +140,7 @@ export async function verifyPayment(
       return { valid: false, error: `Payment invalid: ${verifyResult.invalidReason ?? "Unknown reason"}` };
     }
 
-    return { valid: true, payer: verifyResult.payer ?? "", facilitator, payload };
+    return { valid: true, payer: verifyResult.payer ?? "", facilitator, payload: enrichedPayload };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return { valid: false, error: `Payment verification error: ${msg}` };

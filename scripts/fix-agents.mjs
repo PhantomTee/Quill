@@ -6,8 +6,8 @@ import { arcTestnet } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
 const RPC = process.env.ARC_RPC_URL ?? "https://rpc.testnet.arc.network";
-const REGISTRY_ADDRESS = "0x2953d5aa9409201d6e6ddef78fec0be056810bf2";
-const PROD_URL = "https://quill-app-liard.vercel.app";
+const REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? "0x7d55995c09a8fdc2c93b8d9bc1a8b1511739ba46";
+const PROD_URL = "https://quill-arc.vercel.app";
 const SELLER_ADDRESS = process.env.NEXT_PUBLIC_SELLER_ADDRESS;
 const DEPLOYER_KEY = process.env.DEPLOYER_PRIVATE_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -30,27 +30,21 @@ const walletClient = createWalletClient({ account, chain: arcTestnet, transport:
 const publicClient  = createPublicClient({ chain: arcTestnet, transport: http(RPC) });
 
 async function supabaseUpsert(agent, serviceUrl) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/agents`, {
-    method: "POST",
+  // PATCH updates the existing row matched by agent_id
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/agents?agent_id=eq.${agent.id}`, {
+    method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       "apikey": SUPABASE_KEY,
       "Authorization": `Bearer ${SUPABASE_KEY}`,
-      "Prefer": "resolution=merge-duplicates",
     },
     body: JSON.stringify({
-      agent_id: agent.id,
       name: agent.name,
       description: agent.description,
       service_url: serviceUrl,
       price_per_call: Number(agent.price),
-      wallet_address: SELLER_ADDRESS.toLowerCase(),
-      owner_address: account.address.toLowerCase(),
       tags: agent.tags,
       is_active: true,
-      registered_at: new Date().toISOString(),
-      total_calls: 0,
-      total_revenue: 0,
     }),
   });
   if (!res.ok) {

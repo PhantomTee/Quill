@@ -5,8 +5,8 @@ import { createWalletClient, createPublicClient, http, parseAbi } from "viem";
 import { arcTestnet } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
-const REGISTRY_ADDRESS = "0x2953d5aa9409201d6e6ddef78fec0be056810bf2";
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://quill-app-liard.vercel.app").replace(/\/$/, "");
+const REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? "0x7d55995c09a8fdc2c93b8d9bc1a8b1511739ba46";
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://quill-arc.vercel.app").replace(/\/$/, "");
 const SELLER_ADDRESS = process.env.NEXT_PUBLIC_SELLER_ADDRESS;
 const DEPLOYER_KEY = process.env.DEPLOYER_PRIVATE_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;

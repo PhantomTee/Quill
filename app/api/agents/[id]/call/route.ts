@@ -154,19 +154,20 @@ export async function POST(
       raw: { agentId: id, latencyMs: latency, agentStatus: agentResponse.status },
     }).then(() => null, () => null);
 
-    // Increment stats atomically in Supabase
+    // Increment stats atomically in Supabase (success_count now tracked too)
     const { error: rpcErr } = await supabase.rpc("increment_agent_stats", {
       p_agent_id: agent.agent_id,
       p_amount: amountUSDC,
+      p_success: true,
     });
     if (rpcErr) {
       await supabase.from("agents")
-        .update({ total_calls: agent.total_calls + 1 })
+        .update({ total_calls: agent.total_calls + 1, success_count: (agent.success_count ?? 0) + 1 })
         .eq("agent_id", id)
         .then(() => null, () => null);
     }
 
-    // Increment totalCalls on-chain (fire-and-forget — does not block response)
+    // Increment totalCalls + successCount on-chain (fire-and-forget — does not block response)
     if (REGISTRY_ADDRESS) {
       Promise.resolve().then(async () => {
         try {
@@ -176,7 +177,7 @@ export async function POST(
             address: REGISTRY_ADDRESS,
             abi: REGISTRY_ABI,
             functionName: "recordCall",
-            args: [BigInt(agent.agent_id)],
+            args: [BigInt(agent.agent_id), true],
           });
           await publicClient.waitForTransactionReceipt({ hash });
         } catch {

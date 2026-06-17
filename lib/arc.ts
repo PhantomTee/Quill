@@ -12,16 +12,22 @@ export const USDC_DECIMALS = 6;
 
 export const REGISTRY_ABI = parseAbi([
   "function registerAgent(string name, string description, string serviceUrl, uint256 pricePerCall, address walletAddress, string[] tags) returns (uint256)",
-  "function getAgent(uint256 agentId) view returns ((uint256,string,string,string,uint256,address,string[],address,bool,uint256,uint256,uint256))",
+  "function getAgent(uint256 agentId) view returns ((uint256,string,string,string,uint256,address,string[],address,bool,uint256,uint256,uint256,uint256,uint256,uint256))",
   "function getAgentsByOwner(address agentOwner) view returns (uint256[])",
   "function totalAgents() view returns (uint256)",
   "function updateAgent(uint256 agentId, string serviceUrl, uint256 pricePerCall, string description)",
-  "function recordCall(uint256 agentId)",
+  "function recordCall(uint256 agentId, bool success)",
+  "function setUniquePayers(uint256 agentId, uint256 count)",
+  "function stake(uint256 agentId, uint256 amount)",
+  "function withdrawStake(uint256 agentId)",
+  "function successRate(uint256 agentId) view returns (uint256)",
   "function deactivateAgent(uint256 agentId)",
   "function reactivateAgent(uint256 agentId)",
   "event AgentRegistered(uint256 indexed agentId, address indexed agentOwner, address indexed walletAddress, string serviceUrl, uint256 pricePerCall, uint256 registeredAt)",
   "event AgentUpdated(uint256 indexed agentId, string serviceUrl, uint256 pricePerCall, uint256 updatedAt)",
-  "event CallRecorded(uint256 indexed agentId, uint256 totalCalls)",
+  "event CallRecorded(uint256 indexed agentId, uint256 totalCalls, uint256 successCount)",
+  "event Staked(uint256 indexed agentId, address indexed staker, uint256 amount)",
+  "event StakeWithdrawn(uint256 indexed agentId, address indexed owner, uint256 amount)",
 ]);
 
 export const ERC20_ABI = parseAbi([

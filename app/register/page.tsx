@@ -4,7 +4,7 @@ import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { Spinner } from "@/components/ui/Spinner";
 import Link from "next/link";
-import { REGISTRY_ABI, REGISTRY_ADDRESS } from "@/lib/arc";
+import { REGISTRY_ABI, REGISTRY_ADDRESS, ERC20_ABI, USDC_ADDRESS, parseUSDC } from "@/lib/arc";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -36,6 +36,12 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ agentId: number; txHash: string } | null>(null);
   const [error, setError] = useState("");
+
+  // Staking state (post-registration)
+  const [stakeAmount, setStakeAmount] = useState("1.00");
+  const [staking, setStaking] = useState(false);
+  const [stakeError, setStakeError] = useState("");
+  const [stakeSuccess, setStakeSuccess] = useState(false);
 
   const handleField = (k: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -128,10 +134,40 @@ export default function RegisterPage() {
       if (!res.ok) throw new Error(data.error ?? "Registration failed");
 
       setResult({ agentId: data.agentId, txHash });
+      setStep(5);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleStake = async () => {
+    if (!walletClient || !result || !REGISTRY_ADDRESS) return;
+    const amount = parseFloat(stakeAmount);
+    if (isNaN(amount) || amount <= 0) { setStakeError("Enter a valid amount"); return; }
+    setStaking(true); setStakeError("");
+    try {
+      const atomicAmount = parseUSDC(stakeAmount);
+      // Step 1: approve USDC
+      await walletClient.writeContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [REGISTRY_ADDRESS, atomicAmount],
+      });
+      // Step 2: stake
+      await walletClient.writeContract({
+        address: REGISTRY_ADDRESS,
+        abi: REGISTRY_ABI,
+        functionName: "stake",
+        args: [BigInt(result.agentId), atomicAmount],
+      });
+      setStakeSuccess(true);
+    } catch (e: unknown) {
+      setStakeError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStaking(false);
     }
   };
 
@@ -161,26 +197,63 @@ export default function RegisterPage() {
       </div>
 
       {result ? (
-        <div className="card" style={{ textAlign: "center", padding: 48 }}>
-          <div style={{ width: 52, height: 52, margin: "0 auto 20px", borderRadius: "50%", background: "rgba(16,185,129,0.1)", border: "2px solid rgba(16,185,129,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Success card */}
+          <div className="card" style={{ textAlign: "center", padding: 40 }}>
+            <div style={{ width: 52, height: 52, margin: "0 auto 20px", borderRadius: "50%", background: "rgba(16,185,129,0.1)", border: "2px solid rgba(16,185,129,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: "var(--color-text)", marginBottom: 8 }}>Agent Registered!</h2>
+            <p style={{ color: "var(--color-text-secondary)", marginBottom: 24 }}>Agent #{result.agentId} is now live on Quill.</p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+              <Link href={`/agent/${result.agentId}`} className="btn btn-primary" style={{ textDecoration: "none" }}>View Agent</Link>
+              <a href={`https://testnet.arcscan.app/tx/${result.txHash}`} target="_blank" rel="noopener noreferrer" className="btn btn-outline">View TX</a>
+            </div>
           </div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: "var(--color-text)", marginBottom: 8 }}>Agent Registered!</h2>
-          <p style={{ color: "var(--color-text-secondary)", marginBottom: 24 }}>Your agent is now live on Quill.</p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-            <Link href={`/agent/${result.agentId}`} className="btn btn-primary" style={{ textDecoration: "none" }}>
-              View Agent
-            </Link>
-            <a
-              href={`https://testnet.arcscan.app/tx/${result.txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline"
-            >
-              View TX
-            </a>
+
+          {/* Optional stake card */}
+          <div className="card" style={{ borderColor: "#f59e0b33" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 600, color: "var(--color-text)", marginBottom: 4 }}>
+                  Stake USDC <span style={{ fontSize: 12, fontWeight: 400, color: "var(--color-text-muted)" }}>optional</span>
+                </h3>
+                <p style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.55 }}>
+                  Lock USDC as a quality bond. Higher stake signals commitment and boosts visibility. Withdraw anytime after deactivating your agent.
+                </p>
+              </div>
+              <span style={{ fontSize: 22 }}>🔒</span>
+            </div>
+            {stakeSuccess ? (
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: 13, color: "#059669", fontWeight: 500 }}>
+                Stake added — your reputation bond is live on-chain.
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {["0.50", "1.00", "5.00"].map((a) => (
+                    <button key={a} onClick={() => setStakeAmount(a)}
+                      style={{ padding: "5px 12px", borderRadius: 8, fontSize: 13, cursor: "pointer", border: `1px solid ${stakeAmount === a ? "#f59e0b" : "var(--color-border)"}`, background: stakeAmount === a ? "rgba(245,158,11,0.08)" : "var(--color-surface)", color: stakeAmount === a ? "#d97706" : "var(--color-text-secondary)" }}>
+                      ${a}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number" min="0.01" step="0.1"
+                  value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)}
+                  className="input mono" style={{ width: 90, padding: "6px 10px" }}
+                />
+                <span style={{ fontSize: 13, color: "var(--color-text-muted)" }}>USDC</span>
+                <button onClick={handleStake} disabled={staking}
+                  style={{ fontSize: 13, fontWeight: 500, padding: "7px 18px", borderRadius: 8, border: "none", background: "#f59e0b", color: "white", cursor: "pointer", opacity: staking ? 0.7 : 1 }}>
+                  {staking ? "Staking…" : "Stake"}
+                </button>
+              </div>
+            )}
+            {stakeError && <p style={{ marginTop: 8, fontSize: 12, color: "#dc2626" }}>{stakeError}</p>}
+            {!stakeSuccess && <p style={{ marginTop: 8, fontSize: 11, color: "var(--color-text-muted)" }}>Requires 2 transactions: USDC approval + stake. Your connected wallet needs USDC on Arc Testnet.</p>}
           </div>
         </div>
       ) : (

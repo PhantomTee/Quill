@@ -13,6 +13,7 @@ const SORT_OPTIONS = [
   { value: "revenue", label: "Top Earning" },
   { value: "newest", label: "Newest" },
   { value: "price_asc", label: "Lowest Price" },
+  { value: "price_desc", label: "Highest Price" },
 ];
 
 interface Agent {
@@ -27,6 +28,54 @@ interface Agent {
   is_active: boolean;
 }
 
+function PriceRangeSlider({
+  min, max, onApply,
+}: {
+  min: string; max: string; onApply: (min: string, max: string) => void;
+}) {
+  const [localMin, setLocalMin] = useState(min);
+  const [localMax, setLocalMax] = useState(max);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 12, color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>Price (USDC):</span>
+      <input
+        type="number"
+        min="0"
+        step="0.001"
+        placeholder="Min"
+        value={localMin}
+        onChange={(e) => setLocalMin(e.target.value)}
+        style={{ width: 70, fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "1px solid var(--color-border)", background: "var(--color-surface-alt)", color: "var(--color-text)", outline: "none" }}
+      />
+      <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>–</span>
+      <input
+        type="number"
+        min="0"
+        step="0.001"
+        placeholder="Max"
+        value={localMax}
+        onChange={(e) => setLocalMax(e.target.value)}
+        style={{ width: 70, fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "1px solid var(--color-border)", background: "var(--color-surface-alt)", color: "var(--color-text)", outline: "none" }}
+      />
+      <button
+        onClick={() => onApply(localMin, localMax)}
+        style={{ fontSize: 12, fontWeight: 500, padding: "5px 12px", borderRadius: 6, border: "1px solid var(--color-border)", background: "var(--color-surface)", color: "var(--color-text-secondary)", cursor: "pointer" }}
+      >
+        Apply
+      </button>
+      {(localMin || localMax) && (
+        <button
+          onClick={() => { setLocalMin(""); setLocalMax(""); onApply("", ""); }}
+          style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "none", background: "transparent", color: "var(--color-text-muted)", cursor: "pointer" }}
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function MarketplacePage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +83,8 @@ export default function MarketplacePage() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("total_calls");
   const [total, setTotal] = useState(0);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
 
   const fetchAgents = useCallback(async () => {
     setLoading(true);
@@ -41,6 +92,8 @@ export default function MarketplacePage() {
       const params = new URLSearchParams({ sort, limit: "24" });
       if (category !== "ALL") params.set("tag", category.toLowerCase());
       if (search) params.set("q", search);
+      if (minPrice) params.set("minPrice", minPrice);
+      if (maxPrice) params.set("maxPrice", maxPrice);
       const res = await fetch(`/api/agents?${params}`);
       const data = await res.json();
       setAgents(data.agents ?? []);
@@ -50,7 +103,7 @@ export default function MarketplacePage() {
     } finally {
       setLoading(false);
     }
-  }, [category, search, sort]);
+  }, [category, search, sort, minPrice, maxPrice]);
 
   useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
@@ -69,8 +122,8 @@ export default function MarketplacePage() {
         </Link>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+      {/* Search + Sort */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <SearchBar value={search} onChange={setSearch} />
         </div>
@@ -86,6 +139,15 @@ export default function MarketplacePage() {
         </select>
       </div>
 
+      {/* Price range filter */}
+      <div style={{ marginBottom: 12 }}>
+        <PriceRangeSlider
+          min={minPrice}
+          max={maxPrice}
+          onApply={(mn, mx) => { setMinPrice(mn); setMaxPrice(mx); }}
+        />
+      </div>
+
       <div style={{ marginBottom: 16 }}>
         <CategoryFilter categories={CATEGORIES} selected={category} onChange={setCategory} />
       </div>
@@ -95,6 +157,7 @@ export default function MarketplacePage() {
           {total === 0 ? "No agents found" : `${total} agent${total !== 1 ? "s" : ""}`}
           {category !== "ALL" && ` in ${category}`}
           {search && ` matching "${search}"`}
+          {(minPrice || maxPrice) && ` · price filter active`}
         </p>
       )}
 

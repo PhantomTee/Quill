@@ -37,6 +37,30 @@ interface Payment {
 
 type CallState = "idle" | "awaiting_payment" | "calling" | "done" | "error";
 
+interface Rating {
+  avgRating: number | null;
+  count: number;
+}
+
+function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [hover, setHover] = useState(0);
+  return (
+    <div style={{ display: "flex", gap: 4, fontSize: 24 }}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span
+          key={i}
+          onMouseEnter={() => setHover(i)}
+          onMouseLeave={() => setHover(0)}
+          onClick={() => onChange(i)}
+          style={{ cursor: "pointer", color: i <= (hover || value) ? "#f59e0b" : "var(--color-border)", transition: "color 0.1s" }}
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -58,7 +82,12 @@ export default function AgentDetailPage() {
   const [requestBody, setRequestBody] = useState('{"prompt": "Hello, world!"}');
   const [callResult, setCallResult] = useState<{ response: string; latency: number; tx: string } | null>(null);
   const [callError, setCallError] = useState("");
-  const [activeTab, setActiveTab] = useState<"overview" | "payments" | "code">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "payments" | "code" | "ratings">("overview");
+  const [rating, setRating] = useState<Rating | null>(null);
+  const [userStars, setUserStars] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
+  const [ratingStatus, setRatingStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
+  const [ratingError, setRatingError] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -67,7 +96,31 @@ export default function AgentDetailPage() {
       .then((data) => { setAgent(data.agent); setPayments(data.payments ?? []); })
       .catch(() => {})
       .finally(() => setLoading(false));
+    fetch(`/api/agents/${id}/rate`)
+      .then((r) => r.json())
+      .then(setRating)
+      .catch(() => null);
   }, [id]);
+
+  const submitRating = async (payer: string) => {
+    if (!userStars) { setRatingError("Please select a star rating"); return; }
+    setRatingStatus("submitting");
+    setRatingError("");
+    try {
+      const res = await fetch(`/api/agents/${id}/rate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stars: userStars, payer, comment: ratingComment }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setRatingError(data.error ?? "Failed to submit rating"); setRatingStatus("error"); return; }
+      setRatingStatus("done");
+      // Refresh rating
+      fetch(`/api/agents/${id}/rate`).then((r) => r.json()).then(setRating).catch(() => null);
+    } catch {
+      setRatingError("Network error"); setRatingStatus("error");
+    }
+  };
 
   const handleCall = async () => {
     if (!agent) return;
@@ -213,8 +266,10 @@ curl -X POST ${agent.service_url} \\
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--color-border)", marginBottom: 28 }}>
-        {(["overview", "payments", "code"] as const).map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={tabStyle(tab)}>{tab}</button>
+        {(["overview", "payments", "code", "ratings"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={tabStyle(tab)}>
+            {tab === "ratings" && rating?.count ? `ratings (${rating.count})` : tab}
+          </button>
         ))}
       </div>
 
@@ -369,6 +424,70 @@ curl -X POST ${agent.service_url} \\
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Ratings Tab */}
+      {activeTab === "ratings" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Summary */}
+          <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "20px 22px", display: "flex", gap: 32, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 48, fontWeight: 700, color: "var(--color-text)", fontFamily: "monospace", lineHeight: 1 }}>
+                {rating?.avgRating ?? "—"}
+              </div>
+              <div style={{ fontSize: 20, color: "#f59e0b", marginTop: 4 }}>{"★".repeat(Math.round(rating?.avgRating ?? 0))}</div>
+              <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 4 }}>{rating?.count ?? 0} rating{rating?.count !== 1 ? "s" : ""}</div>
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              {[5, 4, 3, 2, 1].map((star) => (
+                <div key={star} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: "var(--color-text-muted)", width: 12 }}>{star}</span>
+                  <span style={{ color: "#f59e0b", fontSize: 12 }}>★</span>
+                  <div style={{ flex: 1, height: 6, background: "var(--color-border)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ width: "50%", height: "100%", background: "#f59e0b", borderRadius: 3 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Submit rating */}
+          <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "20px 22px" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-muted)", letterSpacing: "0.08em", marginBottom: 16 }}>RATE THIS AGENT</div>
+            {ratingStatus === "done" ? (
+              <div style={{ color: "#10b981", fontSize: 14, fontWeight: 500 }}>Thanks for your rating!</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <StarPicker value={userStars} onChange={setUserStars} />
+                <textarea
+                  placeholder="Leave a comment (optional)"
+                  value={ratingComment}
+                  onChange={(e) => setRatingComment(e.target.value)}
+                  style={{ minHeight: 70, resize: "vertical", fontFamily: "inherit", fontSize: 13, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-surface-alt)", color: "var(--color-text)", outline: "none" }}
+                />
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <input
+                    id="rating-payer"
+                    placeholder="Your wallet address (0x...)"
+                    style={{ flex: 1, fontSize: 12, fontFamily: "monospace", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-surface-alt)", color: "var(--color-text)", outline: "none" }}
+                  />
+                  <button
+                    disabled={ratingStatus === "submitting"}
+                    onClick={() => {
+                      const input = document.getElementById("rating-payer") as HTMLInputElement;
+                      submitRating(input?.value ?? "");
+                    }}
+                    style={{ fontSize: 13, fontWeight: 500, color: "white", background: "#3b82f6", border: "none", borderRadius: 999, padding: "8px 20px", cursor: "pointer", opacity: ratingStatus === "submitting" ? 0.6 : 1 }}
+                  >
+                    {ratingStatus === "submitting" ? "Submitting…" : "Submit"}
+                  </button>
+                </div>
+                {ratingError && <p style={{ color: "#ef4444", fontSize: 12 }}>{ratingError}</p>}
+                <p style={{ fontSize: 11, color: "var(--color-text-muted)" }}>You must have a settled call to this agent to leave a rating.</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

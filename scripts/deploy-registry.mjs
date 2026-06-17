@@ -31,10 +31,13 @@ async function main() {
   const balance = await publicClient.getBalance({ address: account.address });
   console.log(`Balance:  ${(Number(balance) / 1e18).toFixed(6)} native\n`);
 
+  // Arc Testnet USDC address
+  const USDC = "0x3600000000000000000000000000000000000000";
+
   const hash = await walletClient.deployContract({
     abi: artifact.abi,
     bytecode: artifact.bytecode,
-    args: [],
+    args: [USDC],
   });
 
   console.log(`Deploy tx: ${hash}`);

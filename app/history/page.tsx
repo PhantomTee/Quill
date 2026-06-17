@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useAccount, useConnect } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { useAccount, useConnect, useConnectors } from "wagmi";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/Spinner";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -31,6 +30,11 @@ const TD = { padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--
 export default function HistoryPage() {
   const { address, isConnected } = useAccount();
   const { connect } = useConnect();
+  const connectors = useConnectors();
+  const handleConnect = () => {
+    const c = connectors.find((c) => c.id === "injected") ?? connectors[0];
+    if (c) connect({ connector: c });
+  };
   const [payments, setPayments] = useState<PaymentEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -65,7 +69,7 @@ export default function HistoryPage() {
           Connect your wallet to see your call history and spending.
         </p>
         <button
-          onClick={() => connect({ connector: injected() })}
+          onClick={() => handleConnect()}
           style={{ fontSize: 14, fontWeight: 500, color: "#3b82f6", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 999, padding: "10px 28px", cursor: "pointer" }}
         >
           Connect Wallet

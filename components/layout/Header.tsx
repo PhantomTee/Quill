@@ -11,6 +11,7 @@ const NAV = [
   { href: "/agent-run", label: "Run Agents" },
   { href: "/register", label: "List Agent" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/history", label: "History" },
   { href: "/docs", label: "Docs" },
 ];
 

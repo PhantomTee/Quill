@@ -142,7 +142,7 @@ export async function POST(
         await supabase.from("agents")
           .update({ total_calls: agent.total_calls + 1 })
           .eq("agent_id", id)
-          .catch(() => null);
+          .then(() => null, () => null);
       }
     }
 

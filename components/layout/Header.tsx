@@ -2,16 +2,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAccount, useConnect, useDisconnect } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { useAccount, useConnect, useDisconnect, useConnectors } from "wagmi";
 import { truncateAddress } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 const NAV = [
   { href: "/marketplace", label: "Marketplace" },
+  { href: "/agent-run", label: "Run Agents" },
   { href: "/register", label: "List Agent" },
-  { href: "/playground", label: "Playground" },
-  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/docs", label: "Docs" },
 ];
 
@@ -31,7 +30,13 @@ export function Header() {
   const { address, isConnected } = useAccount();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
+  const connectors = useConnectors();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleConnect = () => {
+    const injectedConnector = connectors.find((c) => c.id === "injected") ?? connectors[0];
+    if (injectedConnector) connect({ connector: injectedConnector });
+  };
 
   return (
     <header
@@ -146,7 +151,7 @@ export function Header() {
               </div>
             ) : (
               <button
-                onClick={() => connect({ connector: injected() })}
+                onClick={() => handleConnect()}
                 style={{
                   fontSize: 13,
                   fontWeight: 500,
@@ -276,7 +281,7 @@ export function Header() {
               </div>
             ) : (
               <button
-                onClick={() => { connect({ connector: injected() }); setMenuOpen(false); }}
+                onClick={() => { handleConnect(); setMenuOpen(false); }}
                 style={{
                   width: "100%",
                   fontSize: 14,

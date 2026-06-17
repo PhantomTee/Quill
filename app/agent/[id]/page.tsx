@@ -35,7 +35,7 @@ interface Payment {
   status: string;
 }
 
-type CallState = "idle" | "awaiting_payment" | "calling" | "done" | "error";
+type CallState = "idle" | "calling" | "done" | "error";
 
 interface Rating {
   avgRating: number | null;
@@ -79,7 +79,7 @@ export default function AgentDetailPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [callState, setCallState] = useState<CallState>("idle");
-  const [requestBody, setRequestBody] = useState('{"prompt": "Hello, world!"}');
+  const [requestBody, setRequestBody] = useState('{"text": "Hello, world!"}');
   const [callResult, setCallResult] = useState<{ response: string; latency: number; tx: string } | null>(null);
   const [callError, setCallError] = useState("");
   const [activeTab, setActiveTab] = useState<"overview" | "payments" | "code" | "ratings">("overview");
@@ -129,18 +129,24 @@ export default function AgentDetailPage() {
     setCallResult(null);
     const start = Date.now();
     try {
-      const res = await fetch(`/api/agents/${id}/call`, {
+      // Parse input from request body — extract text/prompt/task/question field
+      let input = "Hello";
+      try {
+        const parsed = JSON.parse(requestBody);
+        input = parsed.text ?? parsed.prompt ?? parsed.task ?? parsed.question ?? parsed.input ?? JSON.stringify(parsed);
+      } catch { input = requestBody; }
+
+      const res = await fetch("/api/agent/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: requestBody,
+        body: JSON.stringify({ pipeline: [agent.agent_id], input, budgetUSDC: "0.01" }),
       });
-      if (res.status === 402) { setCallState("awaiting_payment"); return; }
-      const text = await res.text();
+      const data = await res.json();
       const latency = Date.now() - start;
-      const paymentResponse = res.headers.get("PAYMENT-RESPONSE");
-      let tx = "";
-      if (paymentResponse) { try { tx = JSON.parse(atob(paymentResponse)).transaction ?? ""; } catch {} }
-      setCallResult({ response: text, latency, tx });
+      if (!res.ok) { setCallError(data.error ?? "Call failed"); setCallState("error"); return; }
+      const output = data.finalOutput ?? data.steps?.[0]?.output ?? JSON.stringify(data);
+      const tx = data.steps?.[0]?.tx ?? "";
+      setCallResult({ response: output, latency, tx });
       setCallState("done");
     } catch (e: unknown) {
       setCallError(e instanceof Error ? e.message : String(e));
@@ -311,19 +317,7 @@ curl -X POST ${agent.service_url} \\
               </div>
             )}
 
-            {callState === "awaiting_payment" && (
-              <div style={{ padding: 16, background: "rgba(59,130,246,0.06)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.18)" }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#3b82f6", marginBottom: 8 }}>402 Payment Required</div>
-                <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 10, lineHeight: 1.6 }}>
-                  This agent requires <strong style={{ color: "var(--color-text)" }}>${priceUSDC} USDC</strong> paid to{" "}
-                  <code style={{ fontFamily: "monospace", fontSize: 12, color: "#3b82f6" }}>{truncateAddress(agent.wallet_address)}</code> on Arc Testnet.
-                  Use the Code tab for integration snippets.
-                </p>
-                <button onClick={() => setCallState("idle")} style={{ fontSize: 12, color: "var(--color-text-secondary)", background: "transparent", border: "1px solid var(--color-border)", borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>Reset</button>
-              </div>
-            )}
-
-            {callState === "done" && callResult && (
+{callState === "done" && callResult && (
               <div>
                 <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 12, color: "var(--color-text-muted)" }}>
                   <span>Latency: <strong style={{ color: "#10b981" }}>{callResult.latency}ms</strong></span>

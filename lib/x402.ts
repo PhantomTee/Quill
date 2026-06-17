@@ -74,22 +74,18 @@ export function buildPaymentRequired(
   };
 }
 
-// Encode requirements as base64 for the PAYMENT-REQUIRED header
 export function encodePaymentRequired(requirements: X402Requirements): string {
   return Buffer.from(JSON.stringify(requirements)).toString("base64");
 }
 
-// Decode payment-signature header
 export function decodePaymentSignature(header: string): X402PaymentPayload | null {
   try {
-    const decoded = Buffer.from(header, "base64").toString("utf8");
-    return JSON.parse(decoded) as X402PaymentPayload;
+    return JSON.parse(Buffer.from(header, "base64").toString("utf8")) as X402PaymentPayload;
   } catch {
     return null;
   }
 }
 
-// Return a 402 Payment Required response
 export function paymentRequiredResponse(
   priceAtomicUnits: string,
   sellerAddress: string,
@@ -97,49 +93,37 @@ export function paymentRequiredResponse(
   description: string
 ): NextResponse {
   const requirements = buildPaymentRequired(priceAtomicUnits, sellerAddress, resourceUrl, description);
-  const encoded = encodePaymentRequired(requirements);
-
-  return NextResponse.json(
-    {},
-    {
-      status: 402,
-      headers: {
-        "PAYMENT-REQUIRED": encoded,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  return NextResponse.json({}, {
+    status: 402,
+    headers: {
+      "PAYMENT-REQUIRED": encodePaymentRequired(requirements),
+      "Content-Type": "application/json",
+    },
+  });
 }
 
-export interface WithGatewayOptions {
-  priceUSDC: string;           // e.g. "0.01"
-  sellerAddress: string;       // wallet receiving USDC
-  resourceUrl: string;         // the URL being protected
-  description?: string;
-  agentId?: number;
-}
-
-export type GatewayVerifyResult =
-  | { valid: true; payer: string; settlementId: string; amountPaid: string }
+export type VerifyOnlyResult =
+  | { valid: true; payer: string; facilitator: unknown; payload: X402PaymentPayload }
   | { valid: false; error: string };
 
-// Verify a payment-signature against Circle Gateway
-// Falls back to simplified verification if @circle-fin/x402-batching is not available
-export async function verifyAndSettlePayment(
+export type SettleResult =
+  | { success: true; settlementId: string; amountPaid: string }
+  | { success: false; error: string };
+
+// Step 1: verify signature + funds. Does NOT move money.
+export async function verifyPayment(
   paymentSignatureHeader: string,
   requirements: X402Requirements
-): Promise<GatewayVerifyResult> {
+): Promise<VerifyOnlyResult> {
   try {
-    // Try to use Circle Gateway BatchFacilitatorClient
     const { BatchFacilitatorClient } = await import("@circle-fin/x402-batching/server");
     const facilitator = new BatchFacilitatorClient();
 
     const payload = decodePaymentSignature(paymentSignatureHeader);
     if (!payload) return { valid: false, error: "Invalid payment-signature header" };
 
-    // Run with a 5-second timeout
     const verifyResult = await Promise.race([
-      facilitator.verify(payload as any, requirements as any),
+      facilitator.verify(payload as never, requirements as never),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Verification timeout")), 5000)
       ),
@@ -149,31 +133,77 @@ export async function verifyAndSettlePayment(
       return { valid: false, error: `Payment invalid: ${verifyResult.invalidReason ?? "Unknown reason"}` };
     }
 
+    return { valid: true, payer: verifyResult.payer ?? "", facilitator, payload };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { valid: false, error: `Payment verification error: ${msg}` };
+  }
+}
+
+// Step 2: settle (moves money). Call only after delivery succeeds.
+export async function settlePayment(
+  facilitator: unknown,
+  payload: X402PaymentPayload,
+  requirements: X402Requirements,
+  amount: string
+): Promise<SettleResult> {
+  try {
+    const f = facilitator as { settle: (p: unknown, r: unknown) => Promise<{ success: boolean; transaction?: string; errorReason?: string }> };
     const settleResult = await Promise.race([
-      facilitator.settle(payload as any, requirements as any),
+      f.settle(payload as never, requirements as never),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Settlement timeout")), 10000)
       ),
     ]);
 
     if (!settleResult.success) {
-      return { valid: false, error: `Settlement failed: ${settleResult.errorReason ?? "Unknown"}` };
+      return { success: false, error: `Settlement failed: ${settleResult.errorReason ?? "Unknown"}` };
     }
 
-    return {
-      valid: true,
-      payer: settleResult.payer ?? verifyResult.payer ?? "",
-      settlementId: settleResult.transaction ?? "",
-      amountPaid: requirements.accepts[0].amount,
-    };
+    return { success: true, settlementId: settleResult.transaction ?? "", amountPaid: amount };
   } catch (e: unknown) {
-    // If Circle SDK is not available, return error
     const msg = e instanceof Error ? e.message : String(e);
-    return { valid: false, error: `Payment verification error: ${msg}` };
+    return { success: false, error: `Settlement error: ${msg}` };
   }
 }
 
-// Middleware wrapper for Next.js App Router route handlers
+export interface WithGatewayOptions {
+  priceUSDC: string;
+  sellerAddress: string;
+  resourceUrl: string;
+  description?: string;
+  agentId?: number;
+}
+
+export type GatewayVerifyResult =
+  | { valid: true; payer: string; settlementId: string; amountPaid: string }
+  | { valid: false; error: string };
+
+// Combined verify+settle — kept for the worker routes that don't need escrow
+export async function verifyAndSettlePayment(
+  paymentSignatureHeader: string,
+  requirements: X402Requirements
+): Promise<GatewayVerifyResult> {
+  const verifyResult = await verifyPayment(paymentSignatureHeader, requirements);
+  if (!verifyResult.valid) return verifyResult;
+
+  const settleResult = await settlePayment(
+    verifyResult.facilitator,
+    verifyResult.payload,
+    requirements,
+    requirements.accepts[0].amount
+  );
+
+  if (!settleResult.success) return { valid: false, error: settleResult.error };
+
+  return {
+    valid: true,
+    payer: verifyResult.payer,
+    settlementId: settleResult.settlementId,
+    amountPaid: settleResult.amountPaid,
+  };
+}
+
 export function withGateway(
   handler: (req: NextRequest, context?: { params: { [key: string]: string } }) => Promise<NextResponse>,
   options: WithGatewayOptions
@@ -181,7 +211,6 @@ export function withGateway(
   return async (req: NextRequest, context?: { params: { [key: string]: string } }): Promise<NextResponse> => {
     const priceAtomicUnits = Math.round(parseFloat(options.priceUSDC) * 1_000_000).toString();
     const description = options.description ?? `Access to ${options.resourceUrl}`;
-
     const paymentSignature = req.headers.get("payment-signature");
 
     if (!paymentSignature) {
@@ -192,18 +221,12 @@ export function withGateway(
     const result = await verifyAndSettlePayment(paymentSignature, requirements);
 
     if (!result.valid) {
-      const requirements2 = buildPaymentRequired(priceAtomicUnits, options.sellerAddress, options.resourceUrl, description);
-      const encoded = encodePaymentRequired(requirements2);
-      return NextResponse.json(
-        { error: result.error },
-        {
-          status: 402,
-          headers: { "PAYMENT-REQUIRED": encoded },
-        }
-      );
+      return NextResponse.json({ error: result.error }, {
+        status: 402,
+        headers: { "PAYMENT-REQUIRED": encodePaymentRequired(requirements) },
+      });
     }
 
-    // Record payment event
     if (options.agentId) {
       try {
         await supabase.from("payment_events").insert({
@@ -218,42 +241,28 @@ export function withGateway(
           raw: { requirements, settlementId: result.settlementId },
         });
 
-        // Update agent stats — try RPC first, fall back to read-modify-write
         const amount = parseFloat(formatUSDC(BigInt(result.amountPaid)));
         const { error: rpcErr } = await supabase.rpc("increment_agent_stats", {
           p_agent_id: options.agentId,
           p_amount: amount,
         });
         if (rpcErr) {
-          const { data: ag } = await supabase
-            .from("agents")
-            .select("total_calls,total_revenue")
-            .eq("agent_id", options.agentId)
-            .single();
-          if (ag) {
-            await supabase.from("agents").update({
-              total_calls: (ag.total_calls ?? 0) + 1,
-              total_revenue: (parseFloat(ag.total_revenue ?? "0") + amount).toFixed(6),
-            }).eq("agent_id", options.agentId!);
-          }
+          await supabase.rpc("increment_agent_stats", { p_agent_id: options.agentId, p_amount: amount }).throwOnError().catch(() => null);
         }
       } catch {
-        // Non-fatal — log but don't block the response
+        // non-fatal
       }
     }
 
-    // Execute handler
     const response = await handler(req, context);
 
-    // Add payment response header on success
     if (response.status >= 200 && response.status < 300) {
-      const paymentResponse = {
+      response.headers.set("PAYMENT-RESPONSE", Buffer.from(JSON.stringify({
         success: true,
         transaction: result.settlementId,
         network: ARC_NETWORK,
         payer: result.payer,
-      };
-      response.headers.set("PAYMENT-RESPONSE", Buffer.from(JSON.stringify(paymentResponse)).toString("base64"));
+      })).toString("base64"));
     }
 
     return response;

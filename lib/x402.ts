@@ -123,7 +123,7 @@ export async function verifyPayment(
     if (!payload) return { valid: false, error: "Invalid payment-signature header" };
 
     const verifyResult = await Promise.race([
-      facilitator.verify(payload as never, requirements as never),
+      facilitator.verify(payload as never, requirements.accepts[0] as never),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Verification timeout")), 5000)
       ),
@@ -150,7 +150,7 @@ export async function settlePayment(
   try {
     const f = facilitator as { settle: (p: unknown, r: unknown) => Promise<{ success: boolean; transaction?: string; errorReason?: string }> };
     const settleResult = await Promise.race([
-      f.settle(payload as never, requirements as never),
+      f.settle(payload as never, requirements.accepts[0] as never),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Settlement timeout")), 10000)
       ),

@@ -85,8 +85,12 @@ export async function evaluateCandidates(
     return { chosenAgentId: null, reasoning: "No agents found for this capability.", confidence: 1 };
   }
 
+  // Sanitize agent-supplied fields before injecting into LLM prompt to prevent injection attacks
+  const sanitize = (s: string, maxLen = 120) =>
+    s.replace(/[<>\[\]{}\\]/g, "").replace(/\n/g, " ").slice(0, maxLen);
+
   const candidateList = candidates.map(c =>
-    `ID ${c.agentId}: "${c.name}" — ${c.description ?? "no description"} | price: $${c.priceFormatted} USDC | tags: [${c.tags.join(", ")}] | totalCalls: ${c.totalCalls}`
+    `ID ${c.agentId}: "${sanitize(c.name, 60)}" — ${sanitize(c.description ?? "no description")} | price: $${c.priceFormatted} USDC | tags: [${c.tags.map(t => sanitize(t, 20)).join(", ")}] | totalCalls: ${c.totalCalls}`
   ).join("\n");
 
   const response = await groq.chat.completions.create({

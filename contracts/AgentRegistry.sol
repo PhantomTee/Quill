@@ -47,6 +47,7 @@ contract AgentRegistry {
     event AgentUpdated(uint256 indexed agentId, string serviceUrl, uint256 pricePerCall, uint256 updatedAt);
     event AgentDeactivated(uint256 indexed agentId, address indexed agentOwner, uint256 deactivatedAt);
     event AgentReactivated(uint256 indexed agentId, address indexed agentOwner, uint256 reactivatedAt);
+    event CallRecorded(uint256 indexed agentId, uint256 totalCalls);
 
     modifier onlyOwner() { require(msg.sender == owner, "AgentRegistry: not owner"); _; }
     modifier notPaused() { require(!paused, "AgentRegistry: paused"); _; }
@@ -150,6 +151,13 @@ contract AgentRegistry {
 
     function totalAgents() external view returns (uint256) {
         return nextAgentId - 1;
+    }
+
+    // Called by the marketplace server after a verified on-chain settlement.
+    // Owner-only to prevent permissionless inflation.
+    function recordCall(uint256 agentId) external onlyOwner agentExists(agentId) {
+        agents[agentId].totalCalls += 1;
+        emit CallRecorded(agentId, agents[agentId].totalCalls);
     }
 
     function pause() external onlyOwner { paused = true; }

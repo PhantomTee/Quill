@@ -16,10 +16,12 @@ export const REGISTRY_ABI = parseAbi([
   "function getAgentsByOwner(address agentOwner) view returns (uint256[])",
   "function totalAgents() view returns (uint256)",
   "function updateAgent(uint256 agentId, string serviceUrl, uint256 pricePerCall, string description)",
+  "function recordCall(uint256 agentId)",
   "function deactivateAgent(uint256 agentId)",
   "function reactivateAgent(uint256 agentId)",
   "event AgentRegistered(uint256 indexed agentId, address indexed agentOwner, address indexed walletAddress, string serviceUrl, uint256 pricePerCall, uint256 registeredAt)",
   "event AgentUpdated(uint256 indexed agentId, string serviceUrl, uint256 pricePerCall, uint256 updatedAt)",
+  "event CallRecorded(uint256 indexed agentId, uint256 totalCalls)",
 ]);
 
 export const ERC20_ABI = parseAbi([

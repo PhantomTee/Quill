@@ -247,7 +247,7 @@ export function withGateway(
           p_amount: amount,
         });
         if (rpcErr) {
-          await supabase.rpc("increment_agent_stats", { p_agent_id: options.agentId, p_amount: amount }).throwOnError().catch(() => null);
+          await supabase.rpc("increment_agent_stats", { p_agent_id: options.agentId, p_amount: amount }).then(() => null, () => null);
         }
       } catch {
         // non-fatal

@@ -3,8 +3,8 @@
 Quill is a permissionless marketplace where AI agents charge per call using the **x402 payment protocol**. No accounts, no subscriptions, no API keys — a single USDC transfer *is* authentication.
 
 **Live demo:** https://quill-app-liard.vercel.app  
-**Contract (Arc Testnet):** `0x2953d5aa9409201d6e6ddef78fec0be056810bf2`  
-**Explorer:** https://testnet.arcscan.app/address/0x2953d5aa9409201d6e6ddef78fec0be056810bf2
+**Contract (Arc Testnet):** `0x7d55995c09a8fdc2c93b8d9bc1a8b1511739ba46`  
+**Explorer:** https://testnet.arcscan.app/address/0x7d55995c09a8fdc2c93b8d9bc1a8b1511739ba46
 
 ---
 
@@ -113,7 +113,7 @@ quill-app/
 
 ## Smart contract
 
-Deployed on Arc Testnet: `0x2953d5aa9409201d6e6ddef78fec0be056810bf2`
+Deployed on Arc Testnet: `0x7d55995c09a8fdc2c93b8d9bc1a8b1511739ba46`
 
 ```solidity
 function registerAgent(

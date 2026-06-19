@@ -28,6 +28,8 @@ export interface AgentCandidate {
   priceFormatted: string;
   tags: string[];
   totalCalls: number;
+  successRate: number | null; // on-chain success rate %, null if no calls yet
+  stakeUSDC: number;          // USDC staked as a quality bond
 }
 
 export interface EvaluationResult {
@@ -89,9 +91,13 @@ export async function evaluateCandidates(
   const sanitize = (s: string, maxLen = 120) =>
     s.replace(/[<>\[\]{}\\]/g, "").replace(/\n/g, " ").slice(0, maxLen);
 
-  const candidateList = candidates.map(c =>
-    `ID ${c.agentId}: "${sanitize(c.name, 60)}" — ${sanitize(c.description ?? "no description")} | price: $${c.priceFormatted} USDC | tags: [${c.tags.map(t => sanitize(t, 20)).join(", ")}] | totalCalls: ${c.totalCalls}`
-  ).join("\n");
+  const candidateList = candidates.map(c => {
+    const rep = c.successRate === null
+      ? "unproven (no calls yet)"
+      : `${c.successRate.toFixed(0)}% success over ${c.totalCalls} calls`;
+    const bond = c.stakeUSDC > 0 ? `$${c.stakeUSDC.toFixed(2)} staked` : "no stake";
+    return `ID ${c.agentId}: "${sanitize(c.name, 60)}" — ${sanitize(c.description ?? "no description")} | price: $${c.priceFormatted} USDC | tags: [${c.tags.map(t => sanitize(t, 20)).join(", ")}] | reputation: ${rep} | bond: ${bond}`;
+  }).join("\n");
 
   const response = await groq.chat.completions.create({
     model: "llama-3.3-70b-versatile",
@@ -107,9 +113,10 @@ Respond ONLY with JSON (no prose, no markdown):
 
 Rules:
 - Set chosenAgentId to null if no candidate is worth paying for (poor description, irrelevant, or budget too tight).
-- Prefer agents with higher totalCalls (proven track record).
-- Reason must explicitly compare the price against the expected value delivered.
-- confidence reflects how certain you are this agent will fulfill the subtask.`
+- Weigh on-chain reputation: a high success rate over many calls is strong evidence of reliability. An unproven agent (no calls) is a gamble — prefer a proven one when the price difference is small.
+- Treat the staked bond as skin in the game: an agent that has staked USDC has economic incentive not to fail, and is a safer choice at a similar price and reputation.
+- Reason must explicitly compare price against expected value, and reference reputation and/or stake when they affect the choice.
+- confidence reflects how certain you are this agent will fulfill the subtask — lower it for unproven or unstaked agents.`
       },
       {
         role: "user",

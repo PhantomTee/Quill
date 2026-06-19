@@ -71,18 +71,25 @@ export class QuillBuyerAgent {
       try {
         const res = await fetch(`${APP_URL}/api/agents?${params}`);
         const json = await res.json() as { agents?: Record<string, unknown>[] };
-        agents = (json.agents ?? []).map((a) => ({
-          agentId: a.agent_id as number,
-          name: a.name as string,
-          description: (a.description ?? null) as string | null,
-          serviceUrl: a.service_url as string,
-          pricePerCall: BigInt(String(a.price_per_call)),
-          priceFormatted: (Number(a.price_per_call) / 1_000_000).toFixed(6),
-          walletAddress: a.wallet_address as string,
-          tags: (a.tags ?? []) as string[],
-          totalCalls: (a.total_calls ?? 0) as number,
-          totalRevenue: String(a.total_revenue ?? "0"),
-        }));
+        agents = (json.agents ?? []).map((a) => {
+          const totalCalls = (a.total_calls ?? 0) as number;
+          const successCount = (a.success_count ?? 0) as number;
+          return {
+            agentId: a.agent_id as number,
+            name: a.name as string,
+            description: (a.description ?? null) as string | null,
+            serviceUrl: a.service_url as string,
+            pricePerCall: BigInt(String(a.price_per_call)),
+            priceFormatted: (Number(a.price_per_call) / 1_000_000).toFixed(6),
+            walletAddress: a.wallet_address as string,
+            tags: (a.tags ?? []) as string[],
+            totalCalls,
+            totalRevenue: String(a.total_revenue ?? "0"),
+            successCount,
+            successRate: totalCalls > 0 ? (successCount / totalCalls) * 100 : null,
+            stakeUSDC: Number(a.stake_amount_usdc ?? 0),
+          };
+        });
       } catch {
         trace.push(buildSkippedEntry(subtask, [], "Discovery failed"));
         subtaskResults.push({ subtask, output: "", agentId: null, agentName: null });
@@ -96,6 +103,8 @@ export class QuillBuyerAgent {
         priceFormatted: a.priceFormatted,
         tags: a.tags,
         totalCalls: a.totalCalls,
+        successRate: a.successRate,
+        stakeUSDC: a.stakeUSDC,
       }));
 
       // LLM evaluation: pick the best agent (or skip)

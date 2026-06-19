@@ -19,6 +19,9 @@ create table public.agents (
   tx_hash          text,
   total_calls      bigint not null default 0,
   total_revenue    numeric(20,6) not null default 0,
+  success_count    bigint not null default 0,            -- calls that returned 2xx (on-chain reputation)
+  unique_payers    bigint not null default 0,            -- distinct paying wallets, synced from payment_events
+  stake_amount_usdc numeric(20,6) not null default 0,    -- USDC staked as a quality bond
   readme           text,
   logo_url         text,
   example_request  jsonb,
@@ -57,7 +60,7 @@ create table public.payment_events (
   gateway_tx       text,
   batch_tx         text,
   status           text not null default 'settled'
-                   check (status in ('settled', 'batched', 'confirmed', 'failed')),
+                   check (status in ('settled', 'settlement_failed', 'batched', 'confirmed', 'failed')),
   raw              jsonb
 );
 
@@ -128,9 +131,15 @@ create policy "Service role manages sync_state"
   using (true);
 
 -- ── increment_agent_stats ─────────────────────────────────────────────────────
--- Atomically increments total_calls and total_revenue for an agent.
--- Called by lib/x402.ts withGateway() after each settled payment.
-create or replace function public.increment_agent_stats(p_agent_id bigint, p_amount numeric)
+-- Atomically increments total_calls, total_revenue and (when the call succeeded)
+-- success_count for an agent. p_success defaults to true so the legacy 2-arg
+-- callers in lib/x402.ts still resolve to this overload.
+-- Called after each settled payment by the call proxy and withGateway().
+create or replace function public.increment_agent_stats(
+  p_agent_id bigint,
+  p_amount numeric,
+  p_success boolean default true
+)
 returns void
 language sql
 security definer
@@ -138,9 +147,24 @@ as $$
   update public.agents
   set
     total_calls   = total_calls + 1,
+    success_count = success_count + (case when p_success then 1 else 0 end),
     total_revenue = total_revenue + p_amount,
     updated_at    = now()
   where agent_id = p_agent_id;
+$$;
+
+-- ── agent_unique_payers ───────────────────────────────────────────────────────
+-- Distinct settled payers per agent. The registry sync cron calls this first and
+-- falls back to a manual count if it is absent, so it is optional but preferred.
+create or replace function public.agent_unique_payers()
+returns table(agent_id bigint, count bigint)
+language sql
+stable
+as $$
+  select agent_id, count(distinct payer) as count
+  from public.payment_events
+  where status = 'settled' and agent_id is not null
+  group by agent_id;
 $$;
 
 -- ── Realtime ──────────────────────────────────────────────────────────────────

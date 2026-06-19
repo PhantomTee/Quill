@@ -38,6 +38,11 @@ export interface QuillAgent {
   tags: string[];
   totalCalls: number;
   totalRevenue: string;
+  // On-chain reputation + economic bond (synced from AgentRegistry).
+  // successRate is null until the agent has at least one recorded call.
+  successCount: number;
+  successRate: number | null; // percentage, 0–100
+  stakeUSDC: number;          // USDC staked as a quality bond
 }
 
 export interface GatewayBalance {

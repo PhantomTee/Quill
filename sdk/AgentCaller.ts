@@ -32,18 +32,25 @@ export class AgentCaller {
 
     const res = await fetch(`${QUILL_API}/api/agents?${params}`);
     const data = await res.json() as { agents?: Record<string, unknown>[] };
-    return (data.agents ?? []).map((a) => ({
-      agentId: a.agent_id as number,
-      name: a.name as string,
-      description: (a.description ?? null) as string | null,
-      serviceUrl: a.service_url as string,
-      pricePerCall: BigInt(String(a.price_per_call)),
-      priceFormatted: (Number(a.price_per_call) / 1_000_000).toFixed(6),
-      walletAddress: a.wallet_address as string,
-      tags: (a.tags ?? []) as string[],
-      totalCalls: (a.total_calls ?? 0) as number,
-      totalRevenue: String(a.total_revenue ?? "0"),
-    }));
+    return (data.agents ?? []).map((a) => {
+      const totalCalls = (a.total_calls ?? 0) as number;
+      const successCount = (a.success_count ?? 0) as number;
+      return {
+        agentId: a.agent_id as number,
+        name: a.name as string,
+        description: (a.description ?? null) as string | null,
+        serviceUrl: a.service_url as string,
+        pricePerCall: BigInt(String(a.price_per_call)),
+        priceFormatted: (Number(a.price_per_call) / 1_000_000).toFixed(6),
+        walletAddress: a.wallet_address as string,
+        tags: (a.tags ?? []) as string[],
+        totalCalls,
+        totalRevenue: String(a.total_revenue ?? "0"),
+        successCount,
+        successRate: totalCalls > 0 ? (successCount / totalCalls) * 100 : null,
+        stakeUSDC: Number(a.stake_amount_usdc ?? 0),
+      };
+    });
   }
 
   async call<T = unknown>(

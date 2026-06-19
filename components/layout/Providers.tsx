@@ -10,13 +10,13 @@ const config = createConfig({
   connectors: [
     injected(),
     injected({
-      target() {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      target: (() => {
         if (typeof window === "undefined") return undefined;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const provider = (window as any).okxwallet;
         if (!provider) return undefined;
         return { id: "okxwallet", name: "OKX Wallet", provider };
-      },
+      }) as any,
     }),
   ],
   transports: { [arcTestnet.id]: http("https://rpc.testnet.arc.network") },

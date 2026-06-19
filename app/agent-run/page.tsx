@@ -9,6 +9,7 @@ interface Subtask { capability: string; searchQuery: string; tags: string[] }
 interface AgentCandidate {
   agentId: number; name: string; description: string | null;
   priceFormatted: string; tags: string[]; totalCalls: number;
+  successRate: number | null; stakeUSDC: number;
 }
 interface TraceEntry {
   subtask: Subtask; candidatesConsidered: AgentCandidate[];
@@ -396,8 +397,22 @@ function TraceCard({ entry, index }: { entry: TraceEntry; index: number }) {
                       {c.description && <span className="text-gray-500 ml-1">— {c.description.slice(0, 80)}</span>}
                     </div>
                     <div className="flex-shrink-0 text-right">
-                      <span className="text-gray-300 font-mono">${c.priceFormatted}</span>
-                      <span className="text-gray-600 ml-1">({c.totalCalls} calls)</span>
+                      <div>
+                        <span className="text-gray-300 font-mono">${c.priceFormatted}</span>
+                        <span className="text-gray-600 ml-1">({c.totalCalls} calls)</span>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5 justify-end">
+                        {c.successRate === null ? (
+                          <span className="text-gray-600">unproven</span>
+                        ) : (
+                          <span className={c.successRate >= 90 ? "text-emerald-400" : c.successRate >= 70 ? "text-amber-400" : "text-red-400"}>
+                            {c.successRate.toFixed(0)}% success
+                          </span>
+                        )}
+                        {c.stakeUSDC > 0 && (
+                          <span className="text-indigo-300">🔒 ${c.stakeUSDC.toFixed(2)}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

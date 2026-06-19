@@ -161,6 +161,11 @@ async function runPipeline(
       tags: agentRow.tags ?? [],
       totalCalls: agentRow.total_calls ?? 0,
       totalRevenue: String(agentRow.total_revenue ?? "0"),
+      successCount: agentRow.success_count ?? 0,
+      successRate: (agentRow.total_calls ?? 0) > 0
+        ? ((agentRow.success_count ?? 0) / agentRow.total_calls) * 100
+        : null,
+      stakeUSDC: Number(agentRow.stake_amount_usdc ?? 0),
     };
 
     const stepStart = Date.now();

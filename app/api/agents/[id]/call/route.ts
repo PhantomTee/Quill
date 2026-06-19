@@ -10,6 +10,10 @@ import {
 } from "@/lib/x402";
 import { formatUSDC, getWalletClient, getPublicClient, REGISTRY_ADDRESS, REGISTRY_ABI } from "@/lib/arc";
 
+// verify (5s) + agent proxy (30s) + settle (10s) can exceed Vercel's default
+// 10s function limit, killing the function mid-settle with a non-JSON 504.
+export const maxDuration = 60;
+
 // Block private/loopback IP ranges to prevent SSRF attacks
 function isPrivateUrl(urlStr: string): boolean {
   try {
